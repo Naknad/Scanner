@@ -1,0 +1,22 @@
+services:
+  scanner:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: svoye-vino-scanner:mvp
+    container_name: svoye-vino-scanner
+    ports:
+      - "8000:8000"
+    environment:
+      - CATALOG_PATH=/app/data/catalog.csv
+      - OCR_LANGS=rus+eng
+      - MATCH_MIN_SCORE=55
+      - MATCH_GAP_THRESHOLD=8
+      - TOP_K=5
+    volumes:
+      # Подложите сюда реальный дамп каталога «Своё Вино» (CSV/JSON) —
+      # файл переживает пересборку контейнера.
+      - ./backend/data:/app/data
+      # Фронтенд отдаётся тем же контейнером как статика (см. app/main.py)
+      - ./frontend:/app/frontend:ro
+    restart: unless-stopped

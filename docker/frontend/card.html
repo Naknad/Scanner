@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Своё Вино — Карточка вина</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="brand">
+    <div class="logo">Своё <span>Вино</span></div>
+  </header>
+  <div class="card-panel" id="cardPanel">Загрузка…</div>
+</div>
+<script>
+  const slug = new URLSearchParams(location.search).get('slug');
+  const panel = document.getElementById('cardPanel');
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function starRating(rating) {
+    const r = Math.round((rating || 0) * 2) / 2;
+    const full = Math.floor(r);
+    const half = r - full >= 0.5;
+    let stars = '★'.repeat(full);
+    if (half) stars += '½';
+    stars += '☆'.repeat(Math.max(0, 5 - full - (half ? 1 : 0)));
+    return stars;
+  }
+
+  async function load() {
+    if (!slug) { panel.textContent = 'Не указан slug вина.'; return; }
+    const res = await fetch(`/api/card/${encodeURIComponent(slug)}`);
+    if (!res.ok) { panel.textContent = 'Вино не найдено в каталоге.'; return; }
+    const card = await res.json();
+
+    const fields = [];
+    if (card.region) fields.push(['Регион', card.region]);
+    if (card.grape) fields.push(['Сорт винограда', card.grape]);
+    if (card.category || card.color) fields.push(['Категория и цвет', [card.category, card.color].filter(Boolean).join(', ')]);
+    if (card.serving_temp) fields.push(['Температура подачи', card.serving_temp]);
+    if (card.abv) fields.push(['Крепость вина', card.abv]);
+    if (card.roskachestvo_score) fields.push(['Роскачество', card.roskachestvo_score + ' баллов']);
+
+    const fieldsHtml = fields.map(([label, value]) => `
+      <div class="field-box">
+        <div class="field-label">${escapeHtml(label)}</div>
+        <div class="field-value">${escapeHtml(value)}</div>
+      </div>`).join('');
+
+    const pairingHtml = (card.food_pairing && card.food_pairing.length)
+      ? `<div class="pairing-title">Сочетание с блюдами</div>
+         <div class="pairing-chips">${card.food_pairing.map(p => `<span class="pairing-chip">${escapeHtml(p)}</span>`).join('')}</div>`
+      : '';
+
+    const ratingHtml = card.public_rating
+      ? `<div class="rating-badge"><span class="stars">${starRating(card.public_rating)}</span> Народный рейтинг ${card.public_rating}</div>`
+      : '';
+
+    panel.innerHTML = `
+      <div class="wine-card">
+        ${card.image_url ? `<img class="wine-image" src="${escapeHtml(card.image_url)}" alt="${escapeHtml(card.name)}">` : ''}
+        ${ratingHtml}
+        <div class="producer-link">${escapeHtml(card.producer || '')}</div>
+        <h1>${escapeHtml(card.name)}</h1>
+        <div class="subtitle-row">${escapeHtml(card.category || 'Вино')}${card.vintage ? ' · ' + escapeHtml(card.vintage) : ''}</div>
+        <div class="field-grid">${fieldsHtml}</div>
+        ${card.description ? `<div class="description">${escapeHtml(card.description)}</div>` : ''}
+        ${pairingHtml}
+      </div>`;
+  }
+  load();
+</script>
+</body>
+</html>
